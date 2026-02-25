@@ -6,6 +6,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Rule
@@ -36,7 +38,7 @@ class AutoReplyViewModelTest {
 
         // Act
         viewModel.startTimer()
-        advanceTimeBy(6000)
+        advanceUntilIdle()
 
         // Assert
         assertThat(actualSeconds).isEqualTo(expectedSeconds)
@@ -53,7 +55,7 @@ class AutoReplyViewModelTest {
 
         // Act
         viewModel.startTimer()
-        advanceTimeBy(6000)
+        advanceUntilIdle()
 
         // Assert
         assertThat(event).isInstanceOf(AutoReplyViewModel.UiEvent.TimerFinished::class.java)
@@ -71,13 +73,14 @@ class AutoReplyViewModelTest {
         }
         viewModel.startTimer()
         advanceTimeBy(2000)
+        runCurrent()
 
         // Act
         viewModel.stopTimer()
-        advanceTimeBy(3000)
+        advanceUntilIdle()
 
         // Assert
-        assertThat(secondsList).isEqualTo(listOf(5,4,3))
+        assertThat(secondsList).isEqualTo(listOf(5, 4, 3))
         job.cancel()
     }
 }
