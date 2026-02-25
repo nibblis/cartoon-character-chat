@@ -73,16 +73,17 @@ fun AuthScreen(
     var showCountryCodePicker by remember { mutableStateOf(false) }
 
     var dialCodeValue by remember { mutableStateOf(TextFieldValue(state.selectedCountry?.code.orEmpty())) }
+    
+    // РЕФАКТОРИНГ: Применен Early Return для чистоты и безопасности
     LaunchedEffect(state.selectedCountry) {
-        if (state.selectedCountry != null) {
-            dialCodeValue = TextFieldValue(
-                text = state.selectedCountry!!.code,
-                selection = TextRange(state.selectedCountry!!.code.length)
-            )
-        }
+        val country = state.selectedCountry ?: return@LaunchedEffect
+
+        dialCodeValue = TextFieldValue(
+            text = country.code,
+            selection = TextRange(country.code.length)
+        )
     }
 
-    // ПРОБЛЕМА 1 РЕШЕНА: Overdraw убран. Фон теперь только у Column.
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -212,7 +213,6 @@ fun AuthScreen(
                 )
             }
 
-            // ПРОБЛЕМА 2 РЕШЕНА: Макет упрощен, лишняя вложенность убрана.
             Button(
                 onClick = { showConfirmDialog = true },
                 enabled = state.dialCode.isNotBlank() && state.phoneNumber.isNotBlank(),
