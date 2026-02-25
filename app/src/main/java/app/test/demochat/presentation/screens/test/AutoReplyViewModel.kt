@@ -27,9 +27,6 @@ class AutoReplyViewModel : ViewModel() {
         job = viewModelScope.launch {
             for (i in 5 downTo 0) {
                 _seconds.value = i
-                if (i == 2) { // Намеренная ошибка для демонстрации отладки
-                    throw IllegalStateException("Something went wrong")
-                }
                 delay(1000)
 
                 if (i == 0) {
