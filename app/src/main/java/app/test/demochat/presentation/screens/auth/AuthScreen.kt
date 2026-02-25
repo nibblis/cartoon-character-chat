@@ -54,6 +54,14 @@ import org.koin.androidx.compose.koinViewModel
 private const val COUNTRY_CODE_PREFIX = "+"
 private const val COUNTRY_CODE_MAX_LENGTH = 5
 
+/**
+ * Отображает главный экран аутентификации.
+ *
+ * Этот экран позволяет пользователю вводить номер телефона, выбирать код страны и инициировать процесс входа.
+ * Он также обрабатывает состояния загрузки и ошибок, поступающие от [viewModel].
+ *
+ * @param viewModel ViewModel, управляющая логикой экрана.
+ */
 @Composable
 fun AuthScreen(
     viewModel: AuthViewModel = koinViewModel(),
@@ -229,9 +237,9 @@ fun AuthScreen(
                     onDismiss = { showConfirmDialog = false }
                 )
             }
-            if (state.errorMessage != null) {
+            state.errorMessage?.let {
                 ErrorDialog(
-                    errorMessage = state.errorMessage!!,
+                    errorMessage = it,
                     onDismiss = { viewModel.clearError() }
                 )
             }
