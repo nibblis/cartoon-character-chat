@@ -218,6 +218,9 @@ fun AuthScreen(
             Text("Отправить код")
         }
 
+        // Оптимизированная версия
+        FibonacciText(number = 35)
+
         if (showConfirmDialog) {
             ConfirmationDialog(
                 dialCode = state.dialCode,
@@ -242,6 +245,17 @@ fun AuthScreen(
         }
     }
 }
+
+@Composable
+fun FibonacciText(number: Int) {
+    fun fib(n: Int): Long {
+        return if (n <= 1) n.toLong() else fib(n - 1) + fib(n - 2)
+    }
+    // Используем remember для кэширования результата
+    val fibResult = remember(number) { fib(number) }
+    Text(text = "Fibonacci: $fibResult", style = MaterialTheme.typography.bodySmall)
+}
+
 
 @Composable
 private fun ConfirmationDialog(
