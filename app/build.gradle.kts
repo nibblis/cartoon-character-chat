@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    id("jacoco")
 }
 
 android {
@@ -29,6 +30,9 @@ android {
                 "proguard-rules.pro"
             )
         }
+        debug {
+            enableUnitTestCoverage = true
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -42,6 +46,49 @@ android {
         buildConfig = true
     }
 }
+
+
+// Simplified JaCoCo Report Task
+tasks.register("testDebugUnitTestCoverage", JacocoReport::class) {
+    dependsOn("testDebugUnitTest")
+    group = "Reporting"
+    description = "Generate Jacoco code coverage reports for the debug build."
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+
+    val fileFilter = listOf(
+        // Android-specific files
+        "**/R.class",
+        "**/R$*.class",
+        "**/BuildConfig.*",
+        "**/Manifest*.*",
+        // Generated data binding
+        "android/databinding/**/*.class",
+        // Dagger, Koin, etc.
+        "**/*_MembersInjector.class",
+        "**/Dagger*Component.class",
+        "**/*_Factory.class",
+        "**/*_Provide*Factory*.*"
+    )
+
+    // Specifies the directories with the compiled class files.
+    // This path is correct for recent AGP versions.
+    val classesDir = fileTree("${buildDir}/tmp/kotlin-classes/debug") {
+        exclude(fileFilter)
+    }
+
+    // Specifies the source code directories
+    val sourceDir = files("${project.projectDir}/src/main/kotlin")
+
+    classDirectories.setFrom(classesDir)
+    sourceDirectories.setFrom(sourceDir)
+    // Location of the execution data from the test task
+    executionData.setFrom(file("${buildDir}/outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec"))
+}
+
 
 dependencies {
 

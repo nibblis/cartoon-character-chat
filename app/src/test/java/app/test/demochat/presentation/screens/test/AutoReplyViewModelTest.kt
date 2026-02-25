@@ -26,15 +26,13 @@ class AutoReplyViewModelTest {
         viewModel = AutoReplyViewModel()
     }
 
+    // --- Happy Path --- 
     @Test
-    fun `test timer ticks down correctly`() = runTest {
+    fun `timer ticks down correctly`() = runTest {
         // Arrange
         val expectedSeconds = listOf(5, 4, 3, 2, 1, 0)
         val actualSeconds = mutableListOf<Int>()
-
-        val job = launch {
-            viewModel.seconds.collect { actualSeconds.add(it) }
-        }
+        val job = launch { viewModel.seconds.collect { actualSeconds.add(it) } }
 
         // Act
         viewModel.startTimer()
@@ -46,12 +44,10 @@ class AutoReplyViewModelTest {
     }
 
     @Test
-    fun `test timer emits finished event`() = runTest {
+    fun `timer emits finished event when done`() = runTest {
         // Arrange
         var event: AutoReplyViewModel.UiEvent? = null
-        val job = launch {
-            event = viewModel.event.first()
-        }
+        val job = launch { event = viewModel.event.first() }
 
         // Act
         viewModel.startTimer()
@@ -62,25 +58,40 @@ class AutoReplyViewModelTest {
         job.cancel()
     }
 
+    // --- Negative Case ---
     @Test
-    fun `test stop timer`() = runTest {
-        // Arrange
+    fun `starting timer twice restarts it`() = runTest {
         val secondsList = mutableListOf<Int>()
-        val job = launch {
-            viewModel.seconds.collect{
-                secondsList.add(it)
-            }
-        }
-        viewModel.startTimer()
+        val job = launch { viewModel.seconds.collect { secondsList.add(it) } }
+
+        // Act
+        viewModel.startTimer() // Запускаем первый раз
         advanceTimeBy(2000)
         runCurrent()
+
+        viewModel.startTimer() // Запускаем второй раз
+        advanceTimeBy(2000)
+        runCurrent()
+
+        // Assert
+        // Ожидаем: 5 (старт), 4, 3 (первый таймер), 5 (рестарт), 4, 3 (второй таймер)
+        assertThat(secondsList).isEqualTo(listOf(5, 4, 3, 5, 4, 3))
+        job.cancel()
+    }
+
+    // --- Edge Case ---
+    @Test
+    fun `stopping timer that was not started does nothing`() = runTest {
+        val secondsList = mutableListOf<Int>()
+        val job = launch { viewModel.seconds.collect { secondsList.add(it) } }
 
         // Act
         viewModel.stopTimer()
         advanceUntilIdle()
 
         // Assert
-        assertThat(secondsList).isEqualTo(listOf(5, 4, 3))
+        // Ожидаем, что значение не изменилось с дефолтного
+        assertThat(secondsList).containsExactly(5)
         job.cancel()
     }
 }
