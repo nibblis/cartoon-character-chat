@@ -14,22 +14,22 @@ class AuthRepository(
     safeApiCall: SafeApiCall,
     apiClient: ApiClient,
     private val preferencesManager: PreferencesManager,
-) : BaseRepository(safeApiCall, apiClient) {
+) : BaseRepository(safeApiCall, apiClient), AuthRepositoryContract {
 
-    suspend fun hasValidTokens(): Boolean {
+    override suspend fun hasValidTokens(): Boolean {
         return preferencesManager.getRefreshToken() != null
     }
 
-    suspend fun sendAuthCode(phone: String): Result<Unit> =
+    override suspend fun sendAuthCode(phone: String): Result<Unit> =
         apiCall(apiCall = { apiClient.sendAuthCode(SendAuthCodeRequest(phone)) })
 
-    suspend fun checkAuthCode(phone: String, code: String): Result<AuthResponse> =
+    override suspend fun checkAuthCode(phone: String, code: String): Result<AuthResponse> =
         apiCall(
             apiCall = { apiClient.checkAuthCode(CheckAuthCodeRequest(phone, code)) },
             onSuccess = { saveTokens(it) }
         )
 
-    suspend fun register(request: RegisterRequest): Result<RegisterResponse> =
+    override suspend fun register(request: RegisterRequest): Result<RegisterResponse> =
         apiCall(
             apiCall = { apiClient.register(request) },
             onSuccess = { saveTokens(it) }

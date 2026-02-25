@@ -1,6 +1,6 @@
 package app.test.demochat.presentation.screens.main
 
-import app.test.demochat.data.repository.AuthRepository
+import app.test.demochat.data.repository.AuthRepositoryContract
 import app.test.demochat.presentation.navigation.INavigation
 import kotlinx.coroutines.launch
 
@@ -11,7 +11,7 @@ sealed class AppState {
 }
 
 class MainViewModel(
-    private val authRepository: AuthRepository,
+    private val authRepository: AuthRepositoryContract,
     internal val navigatables: List<INavigation>,
 ) : BaseViewModel<AppState>(AppState.Loading) {
 

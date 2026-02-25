@@ -1,8 +1,10 @@
 package app.test.demochat.di
 
 import app.test.demochat.data.repository.AuthRepository
+import app.test.demochat.data.repository.AuthRepositoryContract
 import app.test.demochat.data.repository.ChatRepository
 import app.test.demochat.data.repository.CountryRepository
+import app.test.demochat.data.repository.FakeAuthRepository
 import app.test.demochat.data.repository.UserRepository
 import app.test.demochat.domain.usecase.auth.CheckAuthCodeUseCase
 import app.test.demochat.domain.usecase.auth.RegisterUserUseCase
@@ -14,7 +16,14 @@ import org.koin.dsl.module
 
 val repositoryModule = module {
 
-    singleOf(::AuthRepository)
+    val useFake = true
+    single<AuthRepositoryContract> {
+        if (useFake) {
+            FakeAuthRepository(get())
+        } else {
+            AuthRepository(get(), get(), get())
+        }
+    }
     singleOf(::UserRepository)
     singleOf(::ChatRepository)
     singleOf(::CountryRepository)
