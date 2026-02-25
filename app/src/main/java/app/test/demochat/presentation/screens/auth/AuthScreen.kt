@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -73,189 +74,174 @@ fun AuthScreen(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            modifier = Modifier.padding(bottom = 60.dp),
-            style = MaterialTheme.typography.titleLarge,
-            text = "Введите номер телефона"
-        )
-
-        Row(
+    // ПРОБЛЕМА 1 РЕШЕНА: Overdraw убран. Фон теперь только у Column.
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(54.dp)
-                .padding(horizontal = 32.dp)
-                .border(
-                    border = BorderStroke(
-                        1.dp,
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
-                    ),
-                    shape = RoundedCornerShape(20.dp)
-                ),
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Text(
+                modifier = Modifier.padding(bottom = 60.dp),
+                style = MaterialTheme.typography.titleLarge,
+                text = "Введите номер телефона"
+            )
 
             Row(
                 modifier = Modifier
-                    .weight(0.3f)
-                    .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .fillMaxWidth()
+                    .height(54.dp)
+                    .padding(horizontal = 32.dp)
+                    .border(
+                        border = BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                        ),
+                        shape = RoundedCornerShape(20.dp)
+                    ),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+
                 Row(
+                    modifier = Modifier
+                        .weight(0.3f)
+                        .padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Start
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = state.selectedCountry?.flag ?: "❓",
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Start
+                    ) {
+                        Text(
+                            text = state.selectedCountry?.flag ?: "❓",
+                            modifier = Modifier
+                                .padding(end = 6.dp)
+                                .clickable { showCountryCodePicker = true }
+                        )
+                        BasicTextField(
+                            value = dialCodeValue,
+                            onValueChange = { newValue ->
+                                val filteredText =
+                                    newValue.text.filter { it.isDigit() || it == COUNTRY_CODE_PREFIX.first() }
+
+                                if (filteredText.length > COUNTRY_CODE_MAX_LENGTH) return@BasicTextField
+
+                                val updatedText = if (!filteredText.startsWith(COUNTRY_CODE_PREFIX)) {
+                                    "$COUNTRY_CODE_PREFIX$filteredText"
+                                } else {
+                                    filteredText
+                                }
+
+                                dialCodeValue = TextFieldValue(
+                                    text = updatedText,
+                                    selection = TextRange(updatedText.length)
+                                )
+
+                                val selectedCountry = state.countries.find {
+                                    updatedText.startsWith(it.code) && updatedText.length == it.code.length
+                                }
+                                viewModel.setDialCode(dialCodeValue.text)
+                                viewModel.setSelectedCountry(selectedCountry)
+                            },
+                            textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.width(IntrinsicSize.Min)
+                        )
+                    }
+                    Icon(
                         modifier = Modifier
-                            .padding(end = 6.dp)
-                            .clickable { showCountryCodePicker = true }
-                    )
-                    BasicTextField(
-                        value = dialCodeValue,
-                        onValueChange = { newValue ->
-                            // Оставляем только цифры и знак "+"
-                            val filteredText =
-                                newValue.text.filter { it.isDigit() || it == COUNTRY_CODE_PREFIX.first() }
-
-                            // Если длина превышает допустимую, не обновляем значение
-                            if (filteredText.length > COUNTRY_CODE_MAX_LENGTH) return@BasicTextField
-
-                            // Обеспечиваем наличие префикса "+"
-                            val updatedText = if (!filteredText.startsWith(COUNTRY_CODE_PREFIX)) {
-                                "$COUNTRY_CODE_PREFIX$filteredText"
-                            } else {
-                                filteredText
-                            }
-
-                            // Обновляем значение и позицию курсора
-                            dialCodeValue = TextFieldValue(
-                                text = updatedText,
-                                selection = TextRange(updatedText.length)
-                            )
-
-                            // Ищем страну по коду
-                            val selectedCountry = state.countries.find {
-                                updatedText.startsWith(it.code) && updatedText.length == it.code.length
-                            }
-                            viewModel.setDialCode(dialCodeValue.text)
-                            viewModel.setSelectedCountry(selectedCountry)
-                        },
-                        textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        modifier = Modifier.width(IntrinsicSize.Min)
+                            .clickable { showCountryCodePicker = true },
+                        imageVector = Icons.Filled.KeyboardArrowDown,
+                        contentDescription = "Select country",
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
                 }
-                Icon(
+
+                VerticalDivider(
                     modifier = Modifier
-                        .clickable { showCountryCodePicker = true },
-                    imageVector = Icons.Filled.KeyboardArrowDown,
-                    contentDescription = "Select country",
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        .fillMaxHeight(),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                )
+
+                TextField(
+                    value = state.phoneNumber,
+                    onValueChange = { newValue ->
+                        val filteredValue = newValue.filter { it.isDigit() }
+                        viewModel.setPhoneNumber(filteredValue)
+                        viewModel.updateCurrentMask()
+                    },
+                    modifier = Modifier.weight(0.7f),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent
+                    ),
+                    visualTransformation = PhoneNumberTransformation(state.currentMask),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    singleLine = true
                 )
             }
 
-            VerticalDivider(
+            if (showCountryCodePicker) {
+                CountryPickerDialog(
+                    onCountrySelected = { country ->
+                        viewModel.setSelectedCountry(country)
+                        viewModel.setDialCode(country.code)
+                        showCountryCodePicker = false
+                        dialCodeValue = TextFieldValue(
+                            text = country.code,
+                            selection = TextRange(country.code.length)
+                        )
+                    },
+                    countries = state.countries,
+                    onDismissRequest = { showCountryCodePicker = false }
+                )
+            }
+
+            // ПРОБЛЕМА 2 РЕШЕНА: Макет упрощен, лишняя вложенность убрана.
+            Button(
+                onClick = { showConfirmDialog = true },
+                enabled = state.dialCode.isNotBlank() && state.phoneNumber.isNotBlank(),
                 modifier = Modifier
-                    .fillMaxHeight(),
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
-            )
+                    .fillMaxWidth()
+                    .padding(top = 80.dp)
+                    .height(50.dp)
+                    .padding(horizontal = 32.dp)
+            ) {
+                Text("Отправить код")
+            }
 
-            TextField(
-                value = state.phoneNumber,
-                onValueChange = { newValue ->
-                    val filteredValue = newValue.filter { it.isDigit() }
-                    viewModel.setPhoneNumber(filteredValue)
-                    viewModel.updateCurrentMask()
-                },
-                modifier = Modifier.weight(0.7f),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent
-                ),
-                visualTransformation = PhoneNumberTransformation(state.currentMask),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                singleLine = true
-            )
-        }
-
-        if (showCountryCodePicker) {
-            CountryPickerDialog(
-                onCountrySelected = { country ->
-                    viewModel.setSelectedCountry(country)
-                    viewModel.setDialCode(country.code)
-                    showCountryCodePicker = false
-                    dialCodeValue = TextFieldValue(
-                        text = country.code,
-                        selection = TextRange(country.code.length)
-                    )
-                },
-                countries = state.countries,
-                onDismissRequest = { showCountryCodePicker = false }
-            )
-        }
-
-        Button(
-            onClick = { showConfirmDialog = true },
-            enabled = state.dialCode.isNotBlank() && state.phoneNumber.isNotBlank(),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 80.dp)
-                .height(50.dp)
-                .padding(horizontal = 32.dp)
-        ) {
-            Text("Отправить код")
-        }
-
-        // Оптимизированная версия
-        FibonacciText(number = 35)
-
-        if (showConfirmDialog) {
-            ConfirmationDialog(
-                dialCode = state.dialCode,
-                phoneNumber = state.phoneNumber,
-                currentMask = state.currentMask,
-                onConfirm = {
-                    showConfirmDialog = false
-                    viewModel.sendAuthCode()
-                },
-                onDismiss = { showConfirmDialog = false }
-            )
-        }
-        if (state.errorMessage != null) {
-            ErrorDialog(
-                errorMessage = state.errorMessage!!,
-                onDismiss = { viewModel.clearError() }
-            )
-        }
-        if (state.showProgressBar) {
-            Spacer(modifier = Modifier.height(16.dp))
-            CircularProgressIndicator()
+            if (showConfirmDialog) {
+                ConfirmationDialog(
+                    dialCode = state.dialCode,
+                    phoneNumber = state.phoneNumber,
+                    currentMask = state.currentMask,
+                    onConfirm = {
+                        showConfirmDialog = false
+                        viewModel.sendAuthCode()
+                    },
+                    onDismiss = { showConfirmDialog = false }
+                )
+            }
+            if (state.errorMessage != null) {
+                ErrorDialog(
+                    errorMessage = state.errorMessage!!,
+                    onDismiss = { viewModel.clearError() }
+                )
+            }
+            if (state.showProgressBar) {
+                Spacer(modifier = Modifier.height(16.dp))
+                CircularProgressIndicator()
+            }
         }
     }
 }
-
-@Composable
-fun FibonacciText(number: Int) {
-    fun fib(n: Int): Long {
-        return if (n <= 1) n.toLong() else fib(n - 1) + fib(n - 2)
-    }
-    // Используем remember для кэширования результата
-    val fibResult = remember(number) { fib(number) }
-    Text(text = "Fibonacci: $fibResult", style = MaterialTheme.typography.bodySmall)
-}
-
 
 @Composable
 private fun ConfirmationDialog(
