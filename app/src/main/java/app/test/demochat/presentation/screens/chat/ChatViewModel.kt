@@ -27,8 +27,9 @@ class ChatViewModel(
     private fun loadMessages(chatId: String) = launch {
         try {
             val messages = repository.getMessages(chatId)
-            val chat = repository.getChaById(chatId)
-            _state.update { it.copy(messages = messages, chatName = chat?.title ?: "") }
+            // Исправлено: вызов корректного имени метода getChatById
+            val chat = repository.getChatById(chatId)
+            _state.update { it.copy(messages = messages, chatName = chat.title) }
 
         } catch (e: Exception) {
             println("Error loading messages: ${e.message}")
