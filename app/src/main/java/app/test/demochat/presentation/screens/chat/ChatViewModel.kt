@@ -5,7 +5,10 @@ import app.test.demochat.data.model.Message
 import app.test.demochat.data.repository.ChatRepository
 import app.test.demochat.presentation.navigation.NavigationProvider
 import app.test.demochat.presentation.screens.main.BaseViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -59,9 +62,13 @@ class ChatViewModel(
     }
 
     /**
-     * Корректная обработка отмены и повторов.
-     * При повторном вызове старая задача отменяется (loadJob?.cancel()),
-     * что предотвращает "гонки" (race conditions) между старыми и новыми данными.
+     * Coroutines: параллельное выполнение и Structured Concurrency.
+     * 
+     * 1. async/await: выполняем запросы к БД/Сети параллельно, не блокируя UI.
+     * 2. Dispatchers.IO: явно указываем контекст для IO-операций.
+     * 3. coroutineScope: гарантирует структурированность — если один запрос упадет, 
+     *    второй будет отменен автоматически (Structured Concurrency).
+     * 4. Job cancellation: при повторном вызове старая задача отменяется, предотвращая Race Conditions.
      */
     fun loadMessages(chatId: String, isRetry: Boolean = false) {
         loadJob?.cancel() 
@@ -71,15 +78,20 @@ class ChatViewModel(
                 // Симуляция задержки сети для демонстрации отмены
                 if (isRetry) delay(500) 
                 
-                val messages = repository.getMessages(chatId)
-                val chat = repository.getChatById(chatId)
-                
-                _state.update { 
-                    it.copy(
-                        messages = messages, 
-                        chatName = chat.title,
-                        isLoading = false 
-                    ) 
+                coroutineScope {
+                    val messagesDeferred = async(Dispatchers.IO) { repository.getMessages(chatId) }
+                    val chatDeferred = async(Dispatchers.IO) { repository.getChatById(chatId) }
+
+                    val messages = messagesDeferred.await()
+                    val chat = chatDeferred.await()
+
+                    _state.update { 
+                        it.copy(
+                            messages = messages, 
+                            chatName = chat.title,
+                            isLoading = false 
+                        ) 
+                    }
                 }
             } catch (e: Exception) {
                 _state.update { it.copy(isLoading = false, error = e.message) }
@@ -91,8 +103,7 @@ class ChatViewModel(
      * Буферизации и Backpressure.
      * StateFlow по своей природе имеет встроенный буфер размера 1 с политикой 
      * DROP_OLDEST (conflation), что идеально подходит для UI состояний:
-     * подписчик всегда получает только самое актуальное состояние, пропуская промежуточные,
-     * если он не успевает их обрабатывать.
+     * подписчик всегда получает только самое актуальное состояние, пропуская промежуточные.
      */
     fun retryLoading() {
         _refreshTrigger.value++
