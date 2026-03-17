@@ -30,6 +30,31 @@ class ChatRepository {
             .toList()
     }
 
+    /**
+     * Демонстрация Generics и PECS (Producer Extends, Consumer Super).
+     * 
+     * @param items Источник данных (Producer). В Kotlin 'out' соответствует '? extends' в Java.
+     *              Это позволяет передавать List<SpecificChatItem>, где SpecificChatItem наследуется от ChatItem.
+     * @param transformer Функция трансформации.
+     */
+    fun <T : ChatItem, R> processGenericItems(
+        items: List<out T>,
+        transformer: (T) -> R
+    ): List<R> {
+        return items.asSequence()
+            .map(transformer)
+            .toList()
+    }
+
+    /**
+     * Демонстрация предотвращения лишнего боксинга (boxing/unboxing).
+     * Использование специализированных функций агрегации (sumOf) эффективнее, чем map { it.int }.sum(),
+     * так как не создает промежуточный список List<Int> с объектами-обертками.
+     */
+    fun getTotalUnreadCount(): Int {
+        return getChats().sumOf { it.unreadCount }
+    }
+
     fun getMessages(chatId: String): List<Message> {
         return getMessages().filter { it.chatId == chatId }
     }
