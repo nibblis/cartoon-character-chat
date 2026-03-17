@@ -9,6 +9,10 @@ import app.test.demochat.data.model.Message
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 class ChatRepository {
 
@@ -71,6 +75,46 @@ class ChatRepository {
      */
     fun getTotalUnreadCount(): Int {
         return getChats().sumOf { it.unreadCount }
+    }
+
+    /**
+     * Демонстрация ExecutorService, работы с пулом потоков и JMM.
+     * 
+     * JMM (Java Memory Model) гарантирует видимость (visibility) и упорядоченность 
+     * (ordering) операций. Здесь мы используем AtomicInteger для обеспечения 
+     * атомарности изменений в многопоточной среде без блокировок (lock-free), 
+     * что исключает возникновение дедлоков (deadlocks) и состояний гонки (race conditions).
+     */
+    fun parallelMessageAnalysis(chatId: String): Int {
+        val messages = getMessages(chatId)
+        val executor = Executors.newFixedThreadPool(4)
+        val wordCount = AtomicInteger(0)
+
+        try {
+            val tasks = messages.map { message ->
+                Callable {
+                    val count = message.text.split(" ").size
+                    wordCount.addAndGet(count)
+                }
+            }
+
+            // Выполнение задач с таймаутом (корректная обработка времени)
+            val futures = executor.invokeAll(tasks, 5, TimeUnit.SECONDS)
+            
+            // Проверка на отмену по таймауту
+            futures.forEach { if (it.isCancelled) println("Задача была отменена по таймауту") }
+
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt() // Корректная обработка прерывания
+        } finally {
+            // Обязательное завершение работы пула (предотвращение утечек ресурсов)
+            executor.shutdown()
+            if (!executor.awaitTermination(1, TimeUnit.SECONDS)) {
+                executor.shutdownNow()
+            }
+        }
+        
+        return wordCount.get()
     }
 
     /**
