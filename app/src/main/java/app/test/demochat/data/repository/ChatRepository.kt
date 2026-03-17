@@ -118,6 +118,39 @@ class ChatRepository {
     }
 
     /**
+     * Демонстрация работы с низкоуровневыми потоками (Thread) и JMM.
+     * 
+     * 1. start/join: Вызов join() создает отношение happens-before между завершением 
+     *    потока и кодом после join(). Это гарантирует безопасную передачу данных.
+     * 2. volatile: Гарантирует видимость переменной (visibility) между потоками, 
+     *    запрещая кэширование значения локально в потоке.
+     */
+    @Volatile
+    private var sharedFlag = false
+
+    fun performThreadSafeExchange(): String {
+        var sharedData = ""
+        
+        val worker = Thread {
+            try {
+                // Имитация фоновой работы
+                Thread.sleep(50)
+                sharedData = "Результат из фонового потока"
+                sharedFlag = true
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
+        }
+
+        worker.start()
+        
+        // join() гарантирует, что изменения sharedData будут видны основному потоку
+        worker.join() 
+        
+        return if (sharedFlag) sharedData else "Ошибка обмена"
+    }
+
+    /**
      * Демонстрация корректного освобождения ресурсов и обработки исключений.
      * 
      * В Kotlin аналогом try-with-resources является функция .use().
