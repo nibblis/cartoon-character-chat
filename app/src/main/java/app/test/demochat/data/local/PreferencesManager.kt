@@ -35,11 +35,18 @@ class PreferencesManager(private val context: Context) {
         }
     }
 
+    /**
+     * Пример безопасной работы с Nullable параметрами.
+     * Вместо использования !!, мы используем безопасные вызовы и оператор Элвиса.
+     */
     suspend fun saveTokens(accessToken: String?, refreshToken: String?) {
-        if (accessToken == null && refreshToken == null) return
         dataStore.edit { preferences ->
-            preferences[PreferencesKeys.ACCESS_TOKEN] = accessToken!!
-            preferences[PreferencesKeys.REFRESH_TOKEN] = refreshToken!!
+            accessToken?.let { 
+                preferences[PreferencesKeys.ACCESS_TOKEN] = it 
+            }
+            refreshToken?.let { 
+                preferences[PreferencesKeys.REFRESH_TOKEN] = it 
+            }
         }
     }
 

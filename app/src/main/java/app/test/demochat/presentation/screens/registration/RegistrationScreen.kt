@@ -39,9 +39,10 @@ fun RegistrationScreen(
     val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // Использование Smart Cast и избегание !!
     LaunchedEffect(state.messageState) {
-        if (state.messageState != null) {
-            snackbarHostState.showSnackbar(state.messageState!!)
+        state.messageState?.let { message ->
+            snackbarHostState.showSnackbar(message)
         }
     }
 
