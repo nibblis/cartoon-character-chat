@@ -49,35 +49,39 @@ import androidx.compose.ui.unit.dp
 import app.test.demochat.presentation.screens.auth.components.PhoneNumberTransformation
 import app.test.demochat.presentation.screens.auth.components.CountryPickerDialog
 import app.test.demochat.utils.formatByMask
+import kotlinx.coroutines.flow.collectLatest
 import org.koin.androidx.compose.koinViewModel
 
 private const val COUNTRY_CODE_PREFIX = "+"
 private const val COUNTRY_CODE_MAX_LENGTH = 5
 
-/**
- * Отображает главный экран аутентификации.
- *
- * Этот экран позволяет пользователю вводить номер телефона, выбирать код страны и инициировать процесс входа.
- * Он также обрабатывает состояния загрузки и ошибок, поступающие от [viewModel].
- *
- * @param viewModel ViewModel, управляющая логикой экрана.
- */
 @Composable
 fun AuthScreen(
     viewModel: AuthViewModel = koinViewModel(),
 ) {
-
     val state by viewModel.state.collectAsState()
 
     var showConfirmDialog by remember { mutableStateOf(false) }
     var showCountryCodePicker by remember { mutableStateOf(false) }
-
     var dialCodeValue by remember { mutableStateOf(TextFieldValue(state.selectedCountry?.code.orEmpty())) }
-    
-    // РЕФАКТОРИНГ: Применен Early Return для чистоты и безопасности
+
+    // MVI: Обработка Side Effects (Навигация, Ошибки)
+    LaunchedEffect(Unit) {
+        viewModel.effects.collectLatest { effect ->
+            when (effect) {
+                is AuthEffect.NavigateToVerify -> {
+                    // Навигация уже обрабатывается внутри ViewModel для стабильности, 
+                    // но здесь мы можем добавить доп. логику (например, аналитику)
+                }
+                is AuthEffect.ShowError -> {
+                    // Можно показать Toast или Snackbar
+                }
+            }
+        }
+    }
+
     LaunchedEffect(state.selectedCountry) {
         val country = state.selectedCountry ?: return@LaunchedEffect
-
         dialCodeValue = TextFieldValue(
             text = country.code,
             selection = TextRange(country.code.length)
@@ -105,56 +109,37 @@ fun AuthScreen(
                     .height(54.dp)
                     .padding(horizontal = 32.dp)
                     .border(
-                        border = BorderStroke(
-                            1.dp,
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
-                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)),
                         shape = RoundedCornerShape(20.dp)
                     ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-
                 Row(
-                    modifier = Modifier
-                        .weight(0.3f)
-                        .padding(8.dp),
+                    modifier = Modifier.weight(0.3f).padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Start
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = state.selectedCountry?.flag ?: "❓",
-                            modifier = Modifier
-                                .padding(end = 6.dp)
-                                .clickable { showCountryCodePicker = true }
+                            modifier = Modifier.padding(end = 6.dp).clickable { showCountryCodePicker = true }
                         )
                         BasicTextField(
                             value = dialCodeValue,
                             onValueChange = { newValue ->
-                                val filteredText =
-                                    newValue.text.filter { it.isDigit() || it == COUNTRY_CODE_PREFIX.first() }
-
-                                if (filteredText.length > COUNTRY_CODE_MAX_LENGTH) return@BasicTextField
-
-                                val updatedText = if (!filteredText.startsWith(COUNTRY_CODE_PREFIX)) {
-                                    "$COUNTRY_CODE_PREFIX$filteredText"
-                                } else {
-                                    filteredText
+                                val filteredText = newValue.text.filter { it.isDigit() || it == '+' }
+                                if (filteredText.length <= COUNTRY_CODE_MAX_LENGTH) {
+                                    val updatedText = if (!filteredText.startsWith("+")) "+$filteredText" else filteredText
+                                    dialCodeValue = TextFieldValue(updatedText, TextRange(updatedText.length))
+                                    
+                                    // MVI Intent: Обновление кода страны
+                                    viewModel.handleIntent(AuthIntent.UpdateDialCode(dialCodeValue.text))
+                                    
+                                    val country = state.countries.find { it.code == updatedText }
+                                    if (country != null) {
+                                        viewModel.handleIntent(AuthIntent.SelectCountry(country))
+                                    }
                                 }
-
-                                dialCodeValue = TextFieldValue(
-                                    text = updatedText,
-                                    selection = TextRange(updatedText.length)
-                                )
-
-                                val selectedCountry = state.countries.find {
-                                    updatedText.startsWith(it.code) && updatedText.length == it.code.length
-                                }
-                                viewModel.setDialCode(dialCodeValue.text)
-                                viewModel.setSelectedCountry(selectedCountry)
                             },
                             textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -163,26 +148,19 @@ fun AuthScreen(
                         )
                     }
                     Icon(
-                        modifier = Modifier
-                            .clickable { showCountryCodePicker = true },
+                        modifier = Modifier.clickable { showCountryCodePicker = true },
                         imageVector = Icons.Filled.KeyboardArrowDown,
-                        contentDescription = "Select country",
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        contentDescription = null
                     )
                 }
 
-                VerticalDivider(
-                    modifier = Modifier
-                        .fillMaxHeight(),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
-                )
+                VerticalDivider(modifier = Modifier.fillMaxHeight(), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
 
                 TextField(
                     value = state.phoneNumber,
-                    onValueChange = { newValue ->
-                        val filteredValue = newValue.filter { it.isDigit() }
-                        viewModel.setPhoneNumber(filteredValue)
-                        viewModel.updateCurrentMask()
+                    onValueChange = { 
+                        // MVI Intent: Обновление номера
+                        viewModel.handleIntent(AuthIntent.UpdatePhoneNumber(it.filter { it.isDigit() })) 
                     },
                     modifier = Modifier.weight(0.7f),
                     colors = TextFieldDefaults.colors(
@@ -200,13 +178,9 @@ fun AuthScreen(
             if (showCountryCodePicker) {
                 CountryPickerDialog(
                     onCountrySelected = { country ->
-                        viewModel.setSelectedCountry(country)
-                        viewModel.setDialCode(country.code)
+                        viewModel.handleIntent(AuthIntent.SelectCountry(country))
+                        viewModel.handleIntent(AuthIntent.UpdateDialCode(country.code))
                         showCountryCodePicker = false
-                        dialCodeValue = TextFieldValue(
-                            text = country.code,
-                            selection = TextRange(country.code.length)
-                        )
                     },
                     countries = state.countries,
                     onDismissRequest = { showCountryCodePicker = false }
@@ -215,12 +189,8 @@ fun AuthScreen(
 
             Button(
                 onClick = { showConfirmDialog = true },
-                enabled = state.dialCode.isNotBlank() && state.phoneNumber.isNotBlank(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 80.dp)
-                    .height(50.dp)
-                    .padding(horizontal = 32.dp)
+                enabled = state.dialCode.isNotBlank() && state.phoneNumber.isNotBlank() && !state.showProgressBar,
+                modifier = Modifier.fillMaxWidth().padding(top = 80.dp).height(50.dp).padding(horizontal = 32.dp)
             ) {
                 Text("Отправить код")
             }
@@ -232,17 +202,17 @@ fun AuthScreen(
                     currentMask = state.currentMask,
                     onConfirm = {
                         showConfirmDialog = false
-                        viewModel.sendAuthCode()
+                        // MVI Intent: Запрос кода
+                        viewModel.handleIntent(AuthIntent.SendCode)
                     },
                     onDismiss = { showConfirmDialog = false }
                 )
             }
+
             state.errorMessage?.let {
-                ErrorDialog(
-                    errorMessage = it,
-                    onDismiss = { viewModel.clearError() }
-                )
+                ErrorDialog(errorMessage = it, onDismiss = { viewModel.handleIntent(AuthIntent.ClearError) })
             }
+
             if (state.showProgressBar) {
                 Spacer(modifier = Modifier.height(16.dp))
                 CircularProgressIndicator()
@@ -264,40 +234,20 @@ private fun ConfirmationDialog(
         text = {
             Text(
                 style = MaterialTheme.typography.titleMedium,
-                text = "Отправить код подтверждения на номер $dialCode ${
-                    formatByMask(
-                        currentMask,
-                        phoneNumber
-                    )
-                }?"
+                text = "Отправить код подтверждения на номер $dialCode ${formatByMask(currentMask, phoneNumber)}?"
             )
         },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text("Отправить")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Отмена")
-            }
-        }
+        confirmButton = { TextButton(onClick = onConfirm) { Text("Отправить") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
     )
 }
 
 @Composable
-private fun ErrorDialog(
-    errorMessage: String,
-    onDismiss: () -> Unit,
-) {
+private fun ErrorDialog(errorMessage: String, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Ошибка") },
         text = { Text(errorMessage) },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("OK")
-            }
-        }
+        confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } }
     )
 }
