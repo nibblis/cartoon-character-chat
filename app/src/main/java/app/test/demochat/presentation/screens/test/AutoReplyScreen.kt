@@ -9,6 +9,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -21,6 +22,9 @@ fun AutoReplyScreen(
 ) {
     val context = LocalContext.current
     val seconds by viewModel.seconds.collectAsState()
+    
+    // Создаем экземпляр помощника (в реальном приложении лучше использовать DI)
+    val notificationHelper = remember { NotificationHelper(context) }
 
     // Запуск таймера один раз при входе на экран
     LaunchedEffect(Unit) {
@@ -31,8 +35,9 @@ fun AutoReplyScreen(
     LaunchedEffect(Unit) {
         viewModel.event.collect { event ->
             if (event is AutoReplyViewModel.UiEvent.TimerFinished) {
-                NotificationHelper.showNotification(
-                    context.applicationContext
+                notificationHelper.showMessageNotification(
+                    title = "Автоответ",
+                    message = "Время вышло! Сообщение отправлено персонажу."
                 )
             }
         }
