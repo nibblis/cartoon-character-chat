@@ -1,5 +1,10 @@
 package app.test.demochat.presentation.screens.auth
 
+import android.Manifest
+import android.os.Build
+import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -63,18 +68,31 @@ fun AuthScreen(
 
     var showConfirmDialog by remember { mutableStateOf(false) }
     var showCountryCodePicker by remember { mutableStateOf(false) }
+    var showRationaleDialog by remember { mutableStateOf(false) }
     var dialCodeValue by remember { mutableStateOf(TextFieldValue(state.selectedCountry?.code.orEmpty())) }
+
+    // Launcher для запроса разрешений (Android 13+) - Демонстрация разрешений по требованию
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            Log.i("AuthScreen", "Разрешение на уведомления получено")
+        } else {
+            Log.w("AuthScreen", "Пользователь отклонил разрешение на уведомления")
+        }
+        // В любом случае продолжаем флоу подтверждения
+        showConfirmDialog = true
+    }
 
     // MVI: Обработка Side Effects (Навигация, Ошибки)
     LaunchedEffect(Unit) {
         viewModel.effects.collectLatest { effect ->
             when (effect) {
                 is AuthEffect.NavigateToVerify -> {
-                    // Навигация уже обрабатывается внутри ViewModel для стабильности, 
-                    // но здесь мы можем добавить доп. логику (например, аналитику)
+                    Log.i("AuthScreen", "Навигация к верификации для: ${effect.phoneNumber}")
                 }
                 is AuthEffect.ShowError -> {
-                    // Можно показать Toast или Snackbar
+                    Log.e("AuthScreen", "Ошибка экрана: ${effect.message}")
                 }
             }
         }
@@ -132,7 +150,6 @@ fun AuthScreen(
                                     val updatedText = if (!filteredText.startsWith("+")) "+$filteredText" else filteredText
                                     dialCodeValue = TextFieldValue(updatedText, TextRange(updatedText.length))
                                     
-                                    // MVI Intent: Обновление кода страны
                                     viewModel.handleIntent(AuthIntent.UpdateDialCode(dialCodeValue.text))
                                     
                                     val country = state.countries.find { it.code == updatedText }
@@ -160,7 +177,7 @@ fun AuthScreen(
                     value = state.phoneNumber,
                     onValueChange = { 
                         // MVI Intent: Обновление номера
-                        viewModel.handleIntent(AuthIntent.UpdatePhoneNumber(it.filter { it.isDigit() })) 
+                        viewModel.handleIntent(AuthIntent.UpdatePhoneNumber(it.filter { it.isDigit() }))
                     },
                     modifier = Modifier.weight(0.7f),
                     colors = TextFieldDefaults.colors(
@@ -188,11 +205,39 @@ fun AuthScreen(
             }
 
             Button(
-                onClick = { showConfirmDialog = true },
+                onClick = { 
+                    // Демонстрация запроса разрешений по требованию
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        showRationaleDialog = true
+                    } else {
+                        showConfirmDialog = true 
+                    }
+                },
                 enabled = state.dialCode.isNotBlank() && state.phoneNumber.isNotBlank() && !state.showProgressBar,
                 modifier = Modifier.fillMaxWidth().padding(top = 80.dp).height(50.dp).padding(horizontal = 32.dp)
             ) {
                 Text("Отправить код")
+            }
+
+            if (showRationaleDialog) {
+                AlertDialog(
+                    onDismissRequest = { showRationaleDialog = false },
+                    title = { Text("Разрешение на уведомления") },
+                    text = { Text("Нам нужно разрешение, чтобы вы вовремя получили SMS-код в уведомлении и могли войти в приложение.") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            showRationaleDialog = false
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            }
+                        }) { Text("Понятно") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showRationaleDialog = false; showConfirmDialog = true }) {
+                            Text("Отмена")
+                        }
+                    }
+                )
             }
 
             if (showConfirmDialog) {
@@ -202,7 +247,6 @@ fun AuthScreen(
                     currentMask = state.currentMask,
                     onConfirm = {
                         showConfirmDialog = false
-                        // MVI Intent: Запрос кода
                         viewModel.handleIntent(AuthIntent.SendCode)
                     },
                     onDismiss = { showConfirmDialog = false }
